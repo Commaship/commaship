@@ -1,20 +1,37 @@
 <template>
-  <div class="commaship-overlay" v-if="this.visible" @click="close">
-    <div class="commaship-box" @click.stop>
-      <div class="commaship-input">
+  <div class="commaship-overlay" v-if="this.visible" @click="close" @keydown.esc="close">
+    <div v-if="display" class="commaship-display" @click.stop>
+      <textarea v-model="display" readonly ref="displayArea" @keydown.enter="displayOk()" autofocus></textarea>
+      <kirby-button @click="displayOk()" ref="displayOkButton">Ok</kirby-button>
+    </div>
+    <div v-else class="commaship-box" @click.stop>
+      <div class="commaship-input" >
+        <input 
+          v-if="question"
+          ref="questionInput"
+
+          type="text"
+          v-model="answer"
+          @keydown.enter="answerQuestion()"
+        >
         <input
+          v-else
+
           ref="input"
           type="text"
           default="Commaship - enter commands here"
           v-model="query"
           @input="search"
-          @keydown.esc="close" 
+          
           @keydown.enter="exec(selected)" 
           @keydown.down="selectNext" 
           @keydown.up="selectPrevious" 
           @keydown.tab.prevent="selectNext"
           @keydown.shift.tab.prevent="selectPrevious"
         >
+      </div>
+      <div v-if="question" class="commaship-question-text">
+        {{question.text}}
       </div>
       <div class="commaship-results-box">
         <ul>
@@ -39,6 +56,7 @@
 
 <script>
 import Fuse from 'fuse.js'
+import Prompt from './prompt.js'
 
 let list = []
 
@@ -70,7 +88,8 @@ window.commaship = {
       id: pkg + '_' + c.id,
       description: `${c.description || ''} [${pkg}]`,
     })))
-  }
+  },
+  ...Prompt
 }
 
 function filterItems(root, items) {
@@ -101,36 +120,103 @@ export default {
         this.open()
       }
     },
-    async open() {
-      const items = await filterItems(this.$root, list)
-      if(items.length === 0) {
-        console.info('did not open commaship because no commands are available atm')
-        return
-      }
 
+    async open() {
       this.query = ''
       this.visible = true
-      this.fuse = new Fuse(items, options)
-      this.results = items
       this.selected = 0
+      this.question = null
+      this.display = null
+      this.results = []
+
       setTimeout(() => this.$refs.input.focus(), 0)
+
+      let result = await this.showItems(list)
+      while(result) {
+        result = await this.handleCommandResponse(result)
+      }
+      this.close()
     },
+
     close() {
       this.visible = false
     },
+
+    async handleCommandResponse(result) {
+      if(Array.isArray(result)) {
+        return await this.showItems(result)
+      } else if(typeof result === 'string') {
+        return await this.showDisplay(result)
+      } else if(result instanceof Prompt.Dialogue) {
+        return await this.runDialogue(result)
+      } else if(result instanceof Prompt.Question) {
+        return await this.askQuestion(result)
+      }
+    },
+
+    runDialogue(dialogue) {
+      return new Promise(async(resolve, reject) => {
+        const result = dialogue.run()
+
+        let response = undefined
+        while (true) {
+          let {value, done} = await result.next(response)
+          if(done) {
+            resolve()
+            break;
+          } else {
+            response = await this.handleCommandResponse(value)
+          }
+        }
+      })
+    },
+    async showItems(items) {
+      items = await filterItems(this.$root, items)
+
+      this.fuse = new Fuse(items, options)
+      this.results = items
+      this.selected = 0
+      this.query = ''
+
+      return new Promise((resolve, reject) => {
+        this.onAction = (result) => {
+          delete this.onAction
+          resolve(result)
+        }
+      })
+    },
     async exec(index) {
       if(this.results[index] && this.results[index].action) {
-        const result = await this.results[index].action(this.$root)
-        if(!result) {
-          this.close()
-        } else if(Array.isArray(result)) {
-          const items = await filterItems(this.$root, result)
-
-          this.fuse = new Fuse(items, options)
-          this.results = items
-          this.selected = 0
-          this.query = ''
+        this.onAction(await this.results[index].action(this.$root))
+      }
+    },
+    askQuestion(question) {
+      this.results = []
+      this.question = question
+      setTimeout(() => this.$refs.questionInput.focus(), 0)
+      return new Promise((resolve, reject) => {
+        this.question.onAnswer = (answer) => {
+          resolve(answer)
         }
+      })
+    },
+    answerQuestion() {
+      this.question.onAnswer(this.answer)
+      this.question = null
+      this.answer = null
+    },
+    showDisplay(text) {
+      this.display = text
+      setTimeout(() => this.$refs.displayArea.focus(), 0)
+      return new Promise((resolve, reject) => {
+        this.onDisplayOk = resolve
+      })
+    },
+    displayOk() {
+      if(this.onDisplayOk) {
+        this.display = null
+        this.onDisplayOk()
+        delete this.onDisplayOk
       }
     },
     selectNext() {
@@ -178,7 +264,10 @@ export default {
       query: '',
       results: list,
       selected: 0,
-      fuse: fuse
+      fuse: fuse,
+      question: null,
+      answer: null,
+      display: null
     }
   }
 }
@@ -220,15 +309,37 @@ export default {
     flex-direction column
     padding 0.75rem 1.05rem
     cursor pointer
-    &[data-selected]
-      background-color #f1f1f1
+    
     &:hover
-      background-color #e8e8e8
+      box-shadow inset 0 0 2px 1px alpha(#4271ae, 20%)
+      background rgba(66,113,174,.1)
+    &[data-selected], &[data-selected]:hover
+      box-shadow inset 0 0 2px 1px #4271ae
+      background rgba(66,113,174,.25)
     b
       color #000
   .commaship-description
     color #999999
     font-size 0.6em
     padding 0.3rem 0
+
+  .commaship-question-text
+    margin 0.3rem
+    font-height 1.2rem
+
+  .commaship-display
+    display flex
+    width 30rem
+    margin 5rem auto
+    flex-direction column
+    background #fefefe
+  
+    textarea
+      background #efefef
+      font inherit
+      resize none
+      border none
+      display block
+      padding 0.75rem 1rem
 </style>
 
