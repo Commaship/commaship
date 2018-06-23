@@ -1,7 +1,7 @@
 <template>
   <div class="commaship-overlay" v-if="this.visible" @click="close" @keydown.esc="close">
     <div v-if="display" class="commaship-display" @click.stop>
-      <textarea v-model="display" readonly ref="displayArea" @keydown.enter="displayOk()" autofocus></textarea>
+      <pre ref="displayArea" @keydown.enter="displayOk()" tabindex="0">{{display}}</pre>
       <kirby-button @click="displayOk()" ref="displayOkButton">Ok</kirby-button>
     </div>
     <div v-else class="commaship-box" @click.stop>
@@ -162,7 +162,7 @@ export default {
         while (true) {
           let {value, done} = await result.next(response)
           if(done) {
-            resolve()
+            resolve(await this.handleCommandResponse(value))
             break;
           } else {
             response = await this.handleCommandResponse(value)
@@ -334,12 +334,12 @@ export default {
     flex-direction column
     background #fefefe
   
-    textarea
+    pre
       background #efefef
       font inherit
-      resize none
-      border none
       display block
       padding 0.75rem 1rem
+      max-height calc(100vh - 10rem)
+      overflow auto
 </style>
 
