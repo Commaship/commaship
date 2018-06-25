@@ -181,13 +181,17 @@ export default {
       return new Promise((resolve, reject) => {
         this.onAction = (result) => {
           delete this.onAction
-          resolve(result)
+          if(typeof result.action === 'function') {
+            resolve(result.action(this.$root))
+          } else {
+            resolve(result.id)
+          }
         }
       })
     },
     async exec(index) {
-      if(this.results[index] && this.results[index].action) {
-        this.onAction(await this.results[index].action(this.$root))
+      if(this.results[index]) {
+        this.onAction(this.results[index])
       }
     },
     askQuestion(question) {
@@ -329,14 +333,14 @@ export default {
 
   .commaship-display
     display flex
-    width 30rem
+    width calc(100% - 10rem)
+    min-width 30rem
     margin 5rem auto
     flex-direction column
     background #fefefe
   
     pre
       background #efefef
-      font inherit
       display block
       padding 0.75rem 1rem
       max-height calc(100vh - 10rem)
