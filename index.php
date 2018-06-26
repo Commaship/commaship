@@ -28,7 +28,7 @@ class Commaship {
   static function list_packages() {
     static::check_auth();
 
-    $repo = kirby()->option('commaship/registry', 'https://raw.githubusercontent.com/Commaship/packages/master/v0.json');
+    $repo = kirby()->option('commaship/registry', 'https://raw.githubusercontent.com/Commaship/packages/master/v1.json');
 
     $installable = json_decode(file_get_contents($repo), true);
     $installedIds = array_map(function($p) { return $p['id']; }, static::list_intalled_packages());
@@ -123,11 +123,25 @@ class Commaship {
         break;
       }
     }
+    
+    //should I bother about dependencies? Where is composer?
+    if($composerbin = kirby()->option('commaship/composer-command', false)) {
+      //has the package dependencies?
+      if(file_exists("$dest/composer.lock")) {
+        //are they not installed?  
+        if(!file_exists("$dest/vendor")) {
+          //then install them
+          set_time_limit(0);
+          chdir($dest);
+          putenv('COMPOSER_HOME=' . __DIR__ . '/tmp');
+          exec("$composerbin install");
+        }
+      }
+    }
 
     //cleanup
     unlink($tmp);
     static::rrmdir($tmp_extracted);
-
     static::purge_cache();
     
     return true;

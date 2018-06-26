@@ -6,6 +6,17 @@ A Kirby 3 command palette for the panel.
 ## Installation
 Download and copy folder to /site/plugins/commaship
 
+If you want to install packages that contain composer dependencies, you need to configure a "composer command":
+
+<small>config.php</small>
+```php
+return [
+  'commaship/composer-command' => 'php /path/to/composer.phar',
+  //...
+]
+```
+
+
 ## Usage
 Commaship itself has only 2 commands: installing and removing packages.  
 One package may contain many commands.
@@ -28,29 +39,32 @@ An empty array would disable the installation option alltogether.
 ## Developing commands
 Command Packages are just Kirby 3 plugins with some extras. Making it easy to add support for commaship in your existing plugins.
 
-Commaship exposes a function to the global namespace to register commands, all the commands need to be registered immediately when the plugin file is loaded.
+Commaship exposes a function to the global namespace to register commands, the commands need to be registered when commaship is loaded. 
+Since plugin loading cannot be consistently ordered in Kirby, you should delay the registration of your commands by 1 tick (a timeout of 0):
 
 ```js
-if (window.commaship) {
-  commaship.register('package name', [
-    {
-      id: 'unique command id',
-      label: 'This is the name of the command',
-      description: 'This is a short description of the command',
+setTimeout(() => {
+  if (window.commaship) {
+    commaship.register('package name', [
+      {
+        id: 'unique command id',
+        label: 'This is the name of the command',
+        description: 'This is a short description of the command',
 
-      action: function(root) { 
-        alert('Hello World!');
-      },
+        action: function(root) { 
+          alert('Hello World!');
+        },
 
-      filter: function(root) {
-        return root.$store.state.user.current !== null //show only for logged in users
+        filter: function(root) {
+          return root.$store.state.user.current !== null //show only for logged in users
+        },
       },
-    },
-    // other commands
-  ]
-} else {
-  console.warn('commaship not loaded')
-}
+      // other commands
+    ]
+  } else {
+    console.warn('commaship not loaded')
+  }
+}, 0);
 ``` 
 
 `commaship.register` accepts 2 arguments:
