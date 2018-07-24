@@ -17,7 +17,6 @@
         <input
           v-else
 
-          :readonly="results.length === 0"
           ref="input"
           type="text"
           default="Commaship - enter commands here"
