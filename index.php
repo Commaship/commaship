@@ -1,8 +1,5 @@
 <?php 
 
-use Kirby\Http\Response\Json;
-use Kirby\Http\Response;
-
 class Commaship {
   public static function can_manage_packages() {
     $u = kirby()->user();
@@ -153,13 +150,13 @@ Kirby::plugin('commaship/commaship', [
     'api/commaship/is-manager' => [
       'pattern' => 'api/commaship/is-manager',
       'action' => function() {
-        return new Json(['manager' => Commaship::can_manage_packages()]);
+        return ['manager' => Commaship::can_manage_packages()];
       },
     ],
     'api/commaship/install-list' => [
       'pattern' => 'api/commaship/install-list',
       'action' => function() {
-        return new Json(Commaship::list_packages());
+        return Commaship::list_packages();
       },
     ],
     'api/commaship/install' => [
@@ -167,13 +164,13 @@ Kirby::plugin('commaship/commaship', [
       'method' => 'POST',
       'action' => function() {
         $pkg = (kirby()->request()->data())['pkg-id'];
-        return new Json(Commaship::install($pkg));
+        return Commaship::install($pkg);
       },
     ],
     'api/commaship/uninstall-list' => [
       'pattern' => 'api/commaship/uninstall-list',
       'action' => function() {
-        return new Json(Commaship::list_intalled_packages());
+        return Commaship::list_intalled_packages();
       },
     ],
     'api/commaship/uninstall' => [
@@ -181,7 +178,7 @@ Kirby::plugin('commaship/commaship', [
       'method' => 'POST',      
       'action' => function() {
         $pkg = (kirby()->request()->data())['pkg-id'];
-        return new Json(Commaship::uninstall($pkg));
+        return Commaship::uninstall($pkg);
       },
     ],
   ],
